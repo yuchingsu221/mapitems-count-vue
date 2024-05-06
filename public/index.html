@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <!-- <link rel="canonical" href="https://letswrite.tw/google-map-api-distance-matrix/"> -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <!-- font -->
+    <link href="https://fonts.googleapis.com/css?family=Noto+Sans+TC&display=swap" rel="stylesheet">
+    <!-- css -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="css/loaders.min.css">
+    <link rel="stylesheet" href="css/all.css">
+    <link rel="stylesheet" href="css/leaflet-routing-machine.css" />
+    <!--Google Map API-->
+    <title>台彩站點資訊</title>
+</head>
+
+<body>
+    <div class="topbar" :class="{hide: menuHide === true}">
+        <h1 class="title">附近投注站</h1>
+        <button class="toggle-button" @click="menuHide = !menuHide"></button>
+    </div>
+    <div id="vue" class="wrap">
+        <!-- <div class="loading" v-if="loading === true">
+        <div class="loader-inner pacman"></div>
+        <div>台彩資料資料讀取中</div>
+    </div> -->
+        <!-- <aside class="notice" v-if="noticeOpen === true">
+        <div class="box">
+            <button class="close-button" @click="noticeOpen = false">×</button>
+            <ul class="list">
+                <div class="title">台彩站點資訊</div>
+            </ul>
+            <ul class="list">
+                <div class="title">資料來源</div>
+            </ul>
+        </div>
+    </aside> -->
+    
+        <div class="sidebar" :class="{hide: menuHide === true}">
+            <button class="toggle-button" @click="menuHide = !menuHide"></button>
+            <div class="top">
+                <div class="search" :class="{searching: searching === true}">
+                    <!-- autocomplete避免輸入錯誤字串 -->
+                    <input type="text" id="search-input" class="search-input" placeholder="搜尋投注站" v-model="searchInput"
+                        @click="searching = true;" autocomplete="off">
+                    <label class="search-label" for="search-input"></label>
+                    <ul class="search-list" v-if="searching === true">
+                        <!-- 查詢後列出的item一一取出來 -->
+                        <li class="search-item" v-for="(item, index, key) of searchingList" :key="key"
+                            @click="changePosition(item.geometry.coordinates[1],item.geometry.coordinates[0],item)"
+                            @click="focusStore(item)" v-if="index < 10">
+                            <div class="name">{{item.properties.name}}</div>
+                            <div class="address">{{item.properties.address}}</div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <ul ref="myList" class="list">
+                <li class="item" v-for="(item,index,key) of sortedData" :key="key"
+                    v-if="(item.distance < distance || (userMarker === null && index < 10))"
+                    @click="changePosition(item.geometry.coordinates[1],item.geometry.coordinates[0],item),focusStore(item)"
+                   >
+                    <h2 class="title">{{item.properties.name}}</h2>
+                    <div class="distance" v-if="userMarker !== null">{{item.distance | round}} 公尺</div>
+                    <div class="data address">{{item.properties.address}}
+                    </div>
+                    <div class="data phone"><a :href="'tel:'+item.properties.phone">{{item.properties.phone}}</a>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <div id="map" class="map"></div>
+        
+        <ul ref="myCard" class="card" id="form">
+            <li class="item" v-for="(item,index,key) of sortedData" :key="key"
+                v-if="(item.distance < distance || (userMarker === null && index < 10))"
+                @dblclick="changePosition(item.geometry.coordinates[1],item.geometry.coordinates[0], item),focusStore(item)"
+               >
+                <h2 class="title">{{item.properties.name}}</h2>
+                <div class="distance" v-if="userMarker !== null">{{item.distance | round}} 公尺</div>
+                <div class="data address">{{item.properties.address}}
+                </div>
+                <button id="navigation" class="navigation"
+                    @click="changePosition(item.geometry.coordinates[1],item.geometry.coordinates[0], item),runDirection(item.geometry.coordinates[1],item.geometry.coordinates[0], item)"
+                    >導航</button>
+
+                <!-- <div class="data phone"><a :href="'tel:'+item.properties.phone">{{item.properties.phone}}</a>
+            </div> -->
+            </li>
+        </ul>
+
+        <div class="filter">
+            <select name="distance" class="distance" v-model="distance" v-if="userMarker !== null">
+                <option class="option" value="1000">1公里</option>
+                <option class="option" value="2000">2公里</option>
+                <option class="option" value="5000">5公里</option>
+            </select>
+        </div>
+        <!-- <button @click="runDirection()" type="submit">Get Directions</button> -->
+    </div>
+
+
+    <div id="app"></div>
+
+    <!-- <script>
+        window.onload = function () {
+
+        }
+    </script> -->
+
+    <!-- js -->
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC8_f3mWRfpoKwoUcgo-4iV1mbSZG4yYHg"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+        crossorigin=""></script>
+    <script src="./js/leaflet-routing-machine-3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/leaflet.markercluster.js"></script>
+    <script src="./js/loaders.css.js"></script>
+    <script src="./js/all.js"></script>
+
+
+</body>
+
+
+</html>
